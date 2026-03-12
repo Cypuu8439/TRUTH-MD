@@ -6,11 +6,11 @@ FROM node:20
 
   COPY package*.json ./
 
-  # Step 1: Install all deps with ignore-scripts
+  # Step 1: Install all deps WITHOUT scripts (prevents libsignal native build failure)
   RUN npm install --legacy-peer-deps --ignore-scripts
 
-  # Step 2: Manually install better-sqlite3 with build (has build tools available)
-  RUN cd /app/node_modules/better-sqlite3 && npm run build-release || echo "build-release not available, trying rebuild" && cd /app && npm rebuild better-sqlite3 || echo "rebuild failed, trying prebuild" && cd /app/node_modules/better-sqlite3 && npx --yes prebuild-install -r napi || echo "all better-sqlite3 install methods tried"
+  # Step 2: Reinstall better-sqlite3 WITH scripts so it downloads prebuilt binary
+  RUN npm install better-sqlite3@11.10.0 --legacy-peer-deps
 
   COPY . .
 
