@@ -1,6 +1,6 @@
 FROM node:20
 
-  RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg imagemagick webp git python3 make g++ && apt-get clean && rm -rf /var/lib/apt/lists/*
+  RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg imagemagick webp git python3 make g++ procps && apt-get clean && rm -rf /var/lib/apt/lists/*
 
   WORKDIR /app
 
@@ -18,5 +18,5 @@ FROM node:20
 
   ENV NODE_ENV=production
 
-  CMD ["npm", "run", "start"]
+  CMD ["node", "index.js"]
   
