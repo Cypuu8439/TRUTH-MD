@@ -12,6 +12,7 @@
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
     "@hapi/boom": "^10.0.1",
+    "@replit/connectors-sdk": "^0.2.0",
     "@whiskeysockets/baileys": "6.7.9",
     "adm-zip": "^0.5.16",
     "awesome-phonenumber": "^5.9.0",
