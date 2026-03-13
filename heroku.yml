@@ -1,3 +1,5 @@
 build:
   docker:
     worker: Dockerfile
+  args:
+    GITHUB_PAT: GITHUB_PAT

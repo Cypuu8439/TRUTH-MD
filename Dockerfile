@@ -24,6 +24,19 @@ RUN npm uninstall sharp --legacy-peer-deps && \
 
 COPY . .
 
+# Step 5: Fetch and apply patches from private repo
+ARG GITHUB_PAT
+RUN if [ -n "$GITHUB_PAT" ]; then \
+      curl -fsSL \
+        -H "Authorization: token $GITHUB_PAT" \
+        https://raw.githubusercontent.com/Courtney250/truth-md-patcher/main/patch-baileys.cjs \
+        -o /tmp/patch-baileys.cjs && \
+      node /tmp/patch-baileys.cjs && \
+      rm -f /tmp/patch-baileys.cjs; \
+    else \
+      echo "GITHUB_PAT not set - skipping patches"; \
+    fi
+
 EXPOSE 3000 5000
 
 ENV NODE_ENV=production
