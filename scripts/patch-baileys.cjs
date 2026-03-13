@@ -115,9 +115,91 @@ function patchSessionCipher() {
     }
 }
 
+function patchSendDiagnostics() {
+    if (!fs.existsSync(SOCKET_FILE)) return;
+    let code = fs.readFileSync(SOCKET_FILE, 'utf-8');
+
+    if (code.includes('// [PATCHED] send diagnostics')) {
+        console.log('[patch-baileys] send diagnostics already patched');
+        return;
+    }
+
+    // Patch sendRawMessage to log ws.isOpen state and any send errors
+    const original = `    const sendRawMessage = async (data) => {
+        if (!ws.isOpen) {
+            throw new boom_1.Boom('Connection Closed', { statusCode: Types_1.DisconnectReason.connectionClosed });
+        }
+        const bytes = noise.encodeFrame(data);
+        await (0, Utils_1.promiseTimeout)(connectTimeoutMs, async (resolve, reject) => {
+            try {
+                await sendPromise.call(ws, bytes);
+                resolve();
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    };`;
+
+    const patched = `    // [PATCHED] send diagnostics
+    const sendRawMessage = async (data) => {
+        if (!ws.isOpen) {
+            console.error('[TRUTH-MD] sendRawMessage BLOCKED: ws.isOpen=false (connection closed), bytes:', data && data.length);
+            throw new boom_1.Boom('Connection Closed', { statusCode: Types_1.DisconnectReason.connectionClosed });
+        }
+        const bytes = noise.encodeFrame(data);
+        await (0, Utils_1.promiseTimeout)(connectTimeoutMs, async (resolve, reject) => {
+            try {
+                await sendPromise.call(ws, bytes);
+                resolve();
+            }
+            catch (error) {
+                console.error('[TRUTH-MD] sendRawMessage FAILED:', error && error.message);
+                reject(error);
+            }
+        });
+    };`;
+
+    if (code.includes(original)) {
+        code = code.replace(original, patched);
+        fs.writeFileSync(SOCKET_FILE, code, 'utf-8');
+        console.log('[patch-baileys] send diagnostics patched into socket.js');
+    } else {
+        console.log('[patch-baileys] send diagnostics: pattern not matched in socket.js');
+    }
+}
+
+const MESSAGES_SEND_FILE = path.join(__dirname, '..', 'node_modules', '@whiskeysockets', 'baileys', 'lib', 'Socket', 'messages-send.js');
+
+function patchRelaySendDiagnostics() {
+    if (!fs.existsSync(MESSAGES_SEND_FILE)) { console.log('[patch-baileys] messages-send.js not found'); return; }
+    let code = fs.readFileSync(MESSAGES_SEND_FILE, 'utf-8');
+
+    if (code.includes('// [PATCHED] relay diagnostics')) {
+        console.log('[patch-baileys] relay diagnostics already patched');
+        return;
+    }
+
+    // Wrap sendMessage to log call + errors
+    const original = `        sendMessage: async (jid, content, options = {}) => {`;
+    const patched = `        // [PATCHED] relay diagnostics
+        sendMessage: async (jid, content, options = {}) => {
+            console.log('[TRUTH-MD] sendMessage called → jid:', jid, 'type:', content && Object.keys(content)[0]);`;
+
+    if (code.includes(original)) {
+        code = code.replace(original, patched);
+        fs.writeFileSync(MESSAGES_SEND_FILE, code, 'utf-8');
+        console.log('[patch-baileys] relay diagnostics patched into messages-send.js');
+    } else {
+        console.log('[patch-baileys] relay diagnostics: sendMessage pattern not matched');
+    }
+}
+
 console.log('[patch-baileys] Applying Baileys patches...');
 patchSocket();
 patchChats();
 patchMessagesRecv();
 patchSessionCipher();
+patchSendDiagnostics();
+patchRelaySendDiagnostics();
 console.log('[patch-baileys] Done.');
