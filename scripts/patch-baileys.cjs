@@ -428,6 +428,64 @@ function patchConnectionMessage() {
     }
 }
 
+function patchOwnerAlwaysAccess() {
+    const xsqlite3Dir = path.join(__dirname, '..', 'node_modules', 'xsqlite3');
+    let mainFile = null;
+    function findMainJs(dir, depth) {
+        if (depth > 60) return null;
+        try {
+            const entries = fs.readdirSync(dir);
+            for (const entry of entries) {
+                const full = path.join(dir, entry);
+                if (entry === 'main.js') {
+                    const content = fs.readFileSync(full, 'utf-8');
+                    if (content.includes('senderIsSudo') && content.includes('isSudo')) return full;
+                }
+                try {
+                    if (fs.statSync(full).isDirectory()) {
+                        const found = findMainJs(full, depth + 1);
+                        if (found) return found;
+                    }
+                } catch (_) {}
+            }
+        } catch (_) {}
+        return null;
+    }
+    mainFile = findMainJs(xsqlite3Dir, 0);
+    if (!mainFile) { console.log('[patch-baileys] main.js (senderIsSudo) not found'); return; }
+
+    let code = fs.readFileSync(mainFile, 'utf-8');
+    if (code.includes('// [PATCHED] owner always access')) {
+        console.log('[patch-baileys] main.js owner always access already patched');
+        return;
+    }
+
+    const orig = `        const resolvedSenderId = resolveToPhoneJid(senderId);
+        const senderIsSudo = await isSudo(resolvedSenderId);`;
+    const patched = `        const resolvedSenderId = resolveToPhoneJid(senderId);
+        // [PATCHED] owner always access
+        let senderIsSudo = await isSudo(resolvedSenderId);
+        if (!senderIsSudo) {
+            try {
+                const _ownerNum = (process.env.OWNER_NUMBER || '').trim();
+                const _senderNum = (resolvedSenderId || '').split('@')[0];
+                const _connId = global.currentSocket?.user?.id || '';
+                const _connNum = _connId.split(':')[0].split('@')[0];
+                if (message.key.fromMe === true) senderIsSudo = true;
+                else if (_ownerNum && _senderNum === _ownerNum) senderIsSudo = true;
+                else if (_connNum && _senderNum === _connNum) senderIsSudo = true;
+            } catch (_) {}
+        }`;
+
+    if (code.includes(orig)) {
+        code = code.replace(orig, patched);
+        fs.writeFileSync(mainFile, code, 'utf-8');
+        console.log('[patch-baileys] main.js patched - owner always has sudo access (fromMe + OWNER_NUMBER + connected number)');
+    } else {
+        console.log('[patch-baileys] main.js owner always access - pattern not matched');
+    }
+}
+
 console.log('[patch-baileys] Applying Baileys patches...');
 patchSocket();
 patchChats();
@@ -439,4 +497,5 @@ patchCommandSpeed();
 patchOwnerDisplay();
 patchOwnerAccess();
 patchConnectionMessage();
+patchOwnerAlwaysAccess();
 console.log('[patch-baileys] Done.');
