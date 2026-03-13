@@ -24,9 +24,6 @@ RUN npm uninstall sharp --legacy-peer-deps && \
 
 COPY . .
 
-# Step 5: Apply patches to fix owner commands, group replies, session errors
-RUN node scripts/patch-baileys.cjs
-
 EXPOSE 3000 5000
 
 ENV NODE_ENV=production

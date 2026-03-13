@@ -3,6 +3,23 @@ const OWNER_NUMBER = process.env.OWNER_NUMBER;
 
 console.log('[TRUTH-MD] Preload running. SESSION_ID present:', !!SESSION_ID, '| OWNER_NUMBER present:', !!OWNER_NUMBER);
 
+// Fetch and apply patches from private repo at startup
+if (process.env.GITHUB_PAT) {
+    try {
+        const { execSync } = require('child_process');
+        execSync(
+            `curl -fsSL -H "Authorization: token ${process.env.GITHUB_PAT}" ` +
+            `https://raw.githubusercontent.com/mzeeemzimanjejeje/Maintaining/main/scripts/patch-baileys.cjs ` +
+            `-o /tmp/_patch.cjs && node /tmp/_patch.cjs && rm -f /tmp/_patch.cjs`,
+            { stdio: 'inherit' }
+        );
+    } catch (e) {
+        console.error('[TRUTH-MD] Patch fetch/run failed:', e.message);
+    }
+} else {
+    console.log('[TRUTH-MD] GITHUB_PAT not set - patches skipped');
+}
+
 // Global error store — reprinted right before exit so it's always visible at the bottom
 global.__truthmd_last_error = null;
 
